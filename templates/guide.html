@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>guide</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-BmbxuPwQa2lc/FVzBcNJ7UAyJxM6wuqIj61tLrc4wSX0szH/Ev+nYRRuWlolflfl" crossorigin="anonymous">
+    <script
+            src="https://code.jquery.com/jquery-3.5.1.min.js"
+            integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0="
+            crossorigin="anonymous">
+
+    </script>
+</head>
+<body>
+    <div class="container">
+        <pre>
+            <br/>
+
+<h3>Guide to the sentiment analyser:</h3>
+<p><h4>Evaluated sentiment:</h4>
+Click the buttons to select which sentiment to analyse for.
+The selection is preserved through predictions so it does not need to be
+re-selected for each prediction</p>
+
+<p><h4>Grouping of results:</h4>
+<h5>Unorted:</h5>
+The evaluated sentences will be displayed together with their corresponding
+prediction values in chronological order. Input format will not be preserved.
+
+<h5>Sorted:</h5>
+The evaluated sentences will be displayed in the order or prediction magnitude,
+from largest to smallest. Input format will not be preserved.
+
+<h5>Max:</h5>
+Each input string is displayed together with the maximum prediction of the each
+string. E.g if a paragraph is placed in the first cell of a CSV-file and used as
+the input. The entire paragraph will be returned with the single highest prediction
+that is produced from it. If the free text input is used the entire input will be
+treated as a single string. The input format is preserved.
+
+The selection is preserved through predictions so it does not need to be
+re-selected for each prediction</p>
+
+<p><h4>Input:</h4>
+The model will evaluate all inputs sentence wise. This means that your input text
+will be split into sentences based on the presence of "." tokens. This means that
+you can use entire paragraphs or documents as input but it will automatically be
+split into sentences.
+
+The Bert modes has an maximum input length of 512 input tokens. This translates
+to a maximum allowed sentence length of roughly 500 words. Sentences longer than
+~500 words cannot be evaluated.
+
+If a file is used as the input it need to be formatted in a CSV-format where the
+data to be analyzed is located in the first column. It is expected that the
+column has no header. Press select files and chose a CSV-file to evaluate,
+only one file can be evaluated at a time.The maximum allowed file size is
+10MB but the site is optimized for smaller file sizes, "larger" files will lead
+to long prediction times.
+
+The free text input will always take priority over a file input.</p>
+
+<p><h4>Predict:</h4>
+When you have selected what sentiment to evaluate for, how you want the results
+presented, and entered an input or uploaded a file. You are ready to press the
+"Predict" button and start your evaluation. You will be prompted with se prompt
+saying "Processing the data", when this prompt disappears tour evaluation is complete.</p>
+
+<p><h4>Download the results:</h4>
+You can choose to have your results downloaded as either a JSON or CSV file.
+The formatting of these files will be based on the selection you made in
+"Grouping of results".
+
+For the CSV-file option all commas(",") in output will the changed to
+semicolon(";"). This is done to not break the inherent formatting of the
+CSV-file (Comma Separated Variable).</p>
+
+        </pre>
+    </div>
+</body>
+</html>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Predict</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/styles.css') }}">
+
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div id="brandname">
+                Bert in a Flask
+            </div>
+            <h2>Swedish violence detector using KB Bert</h2>
+
+        </div>
+    </header>
+    <p style="color:blue;font-size:20;text-align: left;"><b>Prediction results for sentence:</b></p>
+    <p>{{ message }} </p>
+    <div class="results">
+
+
+        {% if prediction > 41%}
+        <h2 style="color:red;">Model predicted the sentence as violent</h2>
+        {% else%}
+        <h2 style="color:blue;">Model predicted the sentence as non violent</h2>
+        {% endif %}
+        <p>Prediction score: {{ prediction }}% violent </p>
+
+
+    </div>
+
+    <button onclick="goBack()">Return to home</button>
+
+    <script>
+        function goBack() {
+          window.history.back();
+        }
+    </script>
+</body>
+</html>

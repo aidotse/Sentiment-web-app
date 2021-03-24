@@ -1,0 +1,68 @@
+Guide to the sentiment analyser:
+##################################################################################
+Evaluated sentiment:
+##########################################
+Click the buttons to select which sentiment to analyse for.
+The selection is preserved through predictions so it does not need to be 
+re-selected for each prediction
+
+##########################################
+Grouping of results:
+##########################################
+Unsorted:
+The evaluated sentences will be displayed togeather with their corresponding 
+prediction values in chronological order. Input format will not be preserved.
+
+Sorted: 
+The evaluated sentences will be displayed in the order or prediction magnitude,
+from largest to smallest. Input format will not be preserved.
+
+Max: 
+Each input string is displayed togeather with the maximum prediction of the each
+string. E.g if a paragraph is placed in the first cell of a CSV-file and used as
+the input. The entire paragraph will be returned with the single highest prediction 
+that is produced from it. If the free text input is used the entire input will be
+treated as a single string. The input format is preserved. 
+
+The selection is preserved through predictions so it does not need to be 
+re-selected for each prediction
+
+##########################################
+Input:
+##########################################
+The model will evaluate all inputs sentece wise. This means that your input text 
+will be split into sentences based on the presence of "." tokens. This means that 
+you can use entire paragaphs or documents as input but it will automatically be 
+split into sentences. 
+
+The Bert modes has an maximum input length of 512 input tokens. This translates 
+to a maximum allowed sentence length of roughly 500 words. Sentences longer than 
+~500 words cannot be evaluated. 
+
+If a file is used as the input it need to be formatted in a CSV-format where the
+data to be analyzed is located in the first column. It is expected that the 
+column has no header. Press select files and chose a CSV-file to evaluate,
+only one file can be evaluated at a time.The maximum allowed file size is 
+10MB but the site is optimized for smaller file sizes, "larger" files will lead 
+to long prediction times.   
+
+The free text input will allways take priority over a file input.
+
+##########################################
+Predict:
+##########################################
+When you have selected what sentiment to evaluate for, how you want the results 
+presented, and entered an input or uploaded a file. You are ready to press the 
+"Predict" button and start your evaluation. You will be prompted with se prompt 
+saying "Processing the data", when this prompt dissapears tour evaluation is complete. 
+
+##########################################
+Download the results:
+##########################################
+You can choose to have your results downloaded as either a JSON or CSV file. 
+The foratting of these files will be based on the selection you made in 
+"Grouping of results".
+
+For the CSV-file option all commas(",") in output will the changed to 
+semicolon(";"). This is done to not break the inheret formatting of the 
+CSV-file (Comma Seperated Variable). 
