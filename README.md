@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 ## User guide to the app
 A user guide to the web app is available in the app. It is essentially the guide.txt with a bit of formatting. 
 
@@ -45,3 +46,9 @@ The models used for the sentiment classification are available for download and 
 [Fear model](https://huggingface.co/fredrikmollerRF/Swedish-Sentiment-Fear)    
 [Violence model](https://huggingface.co/fredrikmollerRF/Swedish-Sentiment-Violence)
 
+=======
+Before running. Make sure you have a valid Bert model directory inside of the "Bert-app" dir. 
+Change the name in the "load_classifier" function in app.py 
+
+Except for this the app should be able to run on any system
+>>>>>>> bc4cac1 (R1.1)
