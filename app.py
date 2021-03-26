@@ -11,11 +11,7 @@ from transformers import BertForSequenceClassification, BertTokenizerFast
 from werkzeug.utils import secure_filename
 
 
-<<<<<<< HEAD
-def next_free_port(port=1024, max_port=65535):
-=======
 def next_free_port(port=3130, max_port=65535):
->>>>>>> bc4cac1 (R1.1)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     while port <= max_port:
         try:
@@ -96,15 +92,9 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # max input file size is roughly 10mb
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-<<<<<<< HEAD
-tokenizer = BertTokenizerFast.from_pretrained("fredrikmollerRF/Swedish-Sentiment-Fear")
-classifier_violence = load_classifier("fredrikmollerRF/Swedish-Sentiment-Violence").to(device)
-classifier_fear = load_classifier("fredrikmollerRF/Swedish-Sentiment-Fear").to(device)
-=======
 tokenizer = BertTokenizerFast.from_pretrained("RecordedFuture/Swedish-Sentiment-Fear")
 classifier_violence = load_classifier("RecordedFuture/Swedish-Sentiment-Violence").to(device)
 classifier_fear = load_classifier("RecordedFuture/Swedish-Sentiment-Fear").to(device)
->>>>>>> bc4cac1 (R1.1)
 
 
 @app.route('/')
@@ -255,8 +245,5 @@ if __name__ == "__main__":
           f"# Or\n"
           f"# {ipv4}\n \n")
     print(f"The link below is broken, follow the above steps to access the web app")
-<<<<<<< HEAD
     app.run(debug=True, host='0.0.0.0', port=port)
-=======
-    app.run(debug=True, host='0.0.0.0', port=port)
->>>>>>> bc4cac1 (R1.1)
+
