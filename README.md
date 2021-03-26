@@ -43,8 +43,8 @@ Or through your  IPv4 Address, access it through `ipconfig` in `CMD` or the corr
 
 ## Models:
 The models used for the sentiment classification are available for download and standalone usage at:
-[Fear model](https://huggingface.co/fredrikmollerRF/Swedish-Sentiment-Fear)    
-[Violence model](https://huggingface.co/fredrikmollerRF/Swedish-Sentiment-Violence)
+[Fear model](https://huggingface.co/RecordedFuture/Swedish-Sentiment-Fear)    
+[Violence model](https://huggingface.co/RecordedFuture/Swedish-Sentiment-Violence)
 
 =======
 Before running. Make sure you have a valid Bert model directory inside of the "Bert-app" dir. 
