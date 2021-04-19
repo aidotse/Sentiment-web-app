@@ -61,8 +61,7 @@ def load_classifier(model):
 
 
 def tokenize_data(data, tokenizer):
-    label = np.zeros(len(
-        data))  # dummy labels are used so that the entire Data loader class needs to be rewritten, does not affect classification
+    label = np.zeros(len(data))  # dummy labels are used so that the entire Data loader class needs to be rewritten, does not affect classification
     label = torch.tensor(label, dtype=int)
     encodings = tokenizer(list(data), truncation=True, padding=True)
     transformed_data = Dataset(encodings, label)
@@ -92,8 +91,11 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # max input file size is roughly 10mb
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+print(f"Loading tokenizer")
 tokenizer = BertTokenizerFast.from_pretrained("RecordedFuture/Swedish-Sentiment-Fear")
+print(f"Loading Violence Sentiment model")
 classifier_violence = load_classifier("RecordedFuture/Swedish-Sentiment-Violence").to(device)
+print(f"Loading Fear Sentiment model")
 classifier_fear = load_classifier("RecordedFuture/Swedish-Sentiment-Fear").to(device)
 
 

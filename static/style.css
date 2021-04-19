@@ -1,6 +1,6 @@
 body{
 	font:15px/1.5 Arial, Helvetica,sans-serif;
-	padding: 0px;
+	padding: 50px 50px;;
 	background-color:#f4f3f3;
 }
 
@@ -53,4 +53,9 @@ header h2{
     padding: 20px;
     width: 200px;
     height: 150px;
+}
+
+table, th, td{
+	padding: 50px;
+
 }

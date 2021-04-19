@@ -5,3 +5,4 @@ torch
 tqdm
 numpy==1.18
 werkzeug
+watchdog
