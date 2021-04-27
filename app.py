@@ -63,7 +63,7 @@ def load_classifier(model):
 def tokenize_data(data, tokenizer):
     label = np.zeros(len(data))  # dummy labels are used so that the entire Data loader class needs to be rewritten, does not affect classification
     label = torch.tensor(label, dtype=int)
-    encodings = tokenizer(list(data), truncation=True, padding=True)
+    encodings = tokenizer(list(data), truncation=True, padding=True, max_length= 512)
     transformed_data = Dataset(encodings, label)
     return transformed_data
 
@@ -247,5 +247,5 @@ if __name__ == "__main__":
           f"# Or\n"
           f"# {ipv4}\n \n")
     print(f"The link below is broken, follow the above steps to access the web app")
-    app.run(debug=True, host='0.0.0.0', port=port)
+    app.run(debug=False, host='0.0.0.0', port=port)
 

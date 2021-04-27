@@ -16,6 +16,8 @@
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.2.4/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-table/1.10.1/bootstrap-table.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
 
     <script src="{{ url_for('static', filename='scripts.js') }}" type="text/javascript" > </script>
 
@@ -31,12 +33,23 @@
             <h6>Presented by Recorded Future and AI Sweden</h6>
 
         <a href="/guide" target="_blank" class="btn btn-outline-secondary btn-sm" role="button">User guide</a>
+       
+        <a tabindex="0" class="btn btn-outline-secondary btn-sm" role="button" data-toggle="popover" data-trigger="focus" title="Input info" 
+        data-content="If a file is used as the input it needs to be formatted in a CSV-format where the
+        data to be analyzed is located in the first column. It is expected that the
+        column has no header.
+        
+        If the file and free text input is used simultaneously the free text iput will always take priority over a file input."
+        >Input info</a>
 
         <br/>
         <br/>
 
         <div>
-            <label for="container">Select model for evaulation:</label>
+            <a tabindex="0" class="btn btn-outline-secondary btn-sm" role="button" data-toggle="popover" data-trigger="focus" title="Models" 
+            data-content="Click the buttons to select which model to use.
+            The selection is preserved through predictions so it does not need to be
+            re-selected for each prediction">Select model:</a>
             <select class="form-select" aria-label="Default select example" id="model-select" style="width:100%;max-width:20%;">
                 <option value="fear" selected="selected">Bert-Sentiment-Fear</option>
                 <option value="violence">Bert-Sentiment-Violence</option>
@@ -45,7 +58,9 @@
 
 
         <div>
-            <label for="container">Group results as:</label>
+            <br>
+            <a tabindex="0" class="btn btn-outline-secondary btn-sm" role="button" data-toggle="popover" data-trigger="focus" title="Results" 
+            data-content="Choose the method in which you want your results presented. Go to the user guide for an in depth explenation of the different options">Group results as:</a>
             <select class="form-select" aria-label="Default select example" id="results-select" style="width:100%;max-width:20%;">
                 <option value="unsorted" selected="selected">Unsorted</option>
                 <option value="sorted">Sorted</option>
@@ -71,14 +86,14 @@
 
         <br>
 
-    <div class="btn-group btn-group-toggle" data-toggle="buttons">
+    <div class="btn-group btn-group-toggle">
         <a  class="btn btn-outline-secondary btn-sm" id="submitform" type="button"  value="predict"  >Predict</a>
-        <a  class="btn btn-outline-secondary btn-sm" id="exportJSON" onclick="exportJson(this);" ><i class="icon-download"></i> export json</a>
-        <a  class="btn btn-outline-secondary btn-sm" id="exportCSV"  onclick="exportCSV(this);" ><i class="icon-download"></i> export CSV</a>
+        <a  class="btn btn-outline-secondary btn-sm" id="exportJSON" onclick="exportJson(this);" > export JSON</a>
+        <a  class="btn btn-outline-secondary btn-sm" id="exportCSV"  onclick="exportCSV(this);" > export CSV</a>
     </div>
 
     <div class=" container"> 
-        <div class="results" id="results">
+        <div class="info_box" id="info_box">
         </div>
     </div>
 
@@ -88,8 +103,9 @@
         </div>
     </div>
 
-    <div >
-        <table id="res_table"data-height="900"></table>
+    <div style="display: none" id="res_table_div">
+        <br>
+        <table id="res_table" data-height="900" ></table>
     </div>
 
 

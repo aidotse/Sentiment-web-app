@@ -1,12 +1,38 @@
 var result_data
 filename = ""
-
+var table_data
 var classification_breakpoint = 0
 
 
 function clearBox(elementID){
                             document.getElementById(elementID).innerHTML = "";
                             };
+// initiate the result table 
+$(document).ready(function(){
+         $('#res_table').bootstrapTable({
+        search: true,
+        columns: [{
+                    field: 'message',
+                    title: 'Message',
+                    sortable: true
+                }, {
+                    field: 'pred',
+                    title: 'Prediction',
+                    sortable: true
+                },{
+                    field: 'clss',
+                    title: 'Classification',
+                    sortable: true
+                }, ],
+                
+                data: table_data
+            })
+        })
+
+// init popovers 
+$(document).ready(function(){
+    $('[data-toggle="popover"]').popover();
+})
 
 function convertToCSV(objArray) {
                         var array = typeof objArray != 'object' ? JSON.parse(objArray) : objArray;
@@ -26,83 +52,57 @@ function convertToCSV(objArray) {
                                 return str;
                             }
 
-function ajaxOnSubmit(){clearBox('results');
-                        //$(".results").append( "<p class="alert alert-success"><strong>Success!</strong> This alert box could indicate a successful or positive action.")</p>}
-                        $(".results").append(`Processing the data`);}
+function ajaxOnSubmit(){clearBox('info_box');
+                        $(".info_box").append(`Processing the data`);}
 function ajaxOnError(){}
-function ajaxCallback(data){clearBox('results');
-                            console.log({data:data}) ;
-                            console.log($("input[name='model_button']:checked").val());
-                            if ($("input[name='model_button']:checked").val() == 'violence'){
+function ajaxCallback(data){clearBox('info_box');
+                            clearBox('msg');
+                            result_data = data;
+                            if ($("#model-select").val() == 'violence'){
                                 classification_breakpoint = 0.575}
-                            else if ($("input[name='model_button']:checked").val() == 'fear'){
+                            else if ($("#model-select").val() == 'fear'){
                                 classification_breakpoint = 0.5};
-                            console.log(classification_breakpoint);
                             if (data.message == "no_data_uploaded_or_in_text_area_"){
-                                $(".results").append(`No data available`)}
-                            else{
-
-                                if (data.pred.length > 1){
-                                    //$(".results").append("<p>To many texts to show individual predictions </p>");
-                                    //$(".results").append("<p>Prediction complete, results ready for download </p>")
-                                    var table_data = [];
-                                    for (i = 0; i < data.message.length; i++){
-                                        new_line = {'message':data.message[i], 'pred':(data.pred[i]).toFixed(2)};
-                                        table_data[i]=new_line
-                                        };
-                                    console.log({table_data:table_data});
-                                    if ($('#res_table').bootstrapTable('getData').length==1) {
-                                        $('#res_table').bootstrapTable({
-                                        search: true,
-                                        columns: [{
-                                                    field: 'message',
-                                                    title: 'Message',
-                                                    sortable: true
-                                                }, {
-                                                    field: 'pred',
-                                                    title: 'Prediction',
-                                                    sortable: true
-                                                }],
-                                                
-                                                data: table_data
-                                            })
-                                                }
-                                        else{
-                                            $('#res_table').bootstrapTable('load', table_data);
-                                            }
-                                        }
-                                else{
-                                    $(".results").html(`Sentiment prediction `);
-                                    $(".results").append(data.pred);
-                                    };
-                                    $(".results").append(`<br/>`);
-
-                                if(data.pred.length == 1){
-                                    if (data.pred > classification_breakpoint){
-                                        $(".results").append(`Text classified as `)}
-                                    else {
-                                        $(".results").append(`Text classified as NON `)};
-                                    $(".results").append($("input[name='model_button']:checked").val())};
-                                result_data = data;
+                                $(".info_box").append(`No data available`);
+                                $("#res_table_div").hide()
                                 }
-                            }
+                            else{
+                                // If predictionresults are present, load them in the table, allways 
+                                var table_data = [];
+                                var classification_all = [];
+                                    for (i = 0; i < data.message.length; i++){
+                                        // do classification for each prediction
+                                        if(data.pred[i] < classification_breakpoint){
+                                            // if pred < breakpoint 
+                                            clss = 0
+                                        }
+                                        else{
+                                            // else classify as positive
+                                            clss = 1
+                                        }
+                                        new_line = {'message':data.message[i], 'pred':(data.pred[i]).toFixed(2), 'clss':clss};
+                                        classification_all.push(clss);
+                                        table_data[i]=new_line;
+                                        };
+
+                                    result_data.classification = classification_all;
+                                    $('#res_table').bootstrapTable('load', table_data);
+                                    $("#res_table_div").show()
+                                    }
+                                }
+                                
 
 function exportJson(el) {
                             var data = "text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({"message":result_data.message,"prediction":result_data.pred}));
-                            // what to return in order to show download window?
-
                             el.setAttribute("href", "data:"+data);
                             el.setAttribute("download", "results.json");}
 
-function exportCSV(el) {    console.log(result_data);
-                            var csv_string = "";
+function exportCSV(el) {    var csv_string = "";
                             for (i = 0; i < result_data.message.length; i++){
                                 tt = result_data.message[i].replace(/,/g,';') // replace commas with semi-commas (, -> ;) to avoid erros in the csv
-                                csv_string += `${tt},${result_data.pred[i]}\r\n`}
-                            console.log(csv_string)
-
+                                csv_string += `${tt},${result_data.pred[i]}, ${result_data.classification[i]}\r\n`}
+                            
                             var csv = csv_string
-                            console.log(csv)
 
                             var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
                             if (navigator.msSaveBlob) { // IE 10+
@@ -126,11 +126,8 @@ function exportCSV(el) {    console.log(result_data);
 
 // {#  Modified version of ajax_form_submit for two buttons  #}
 $(document).ready(function() {
-    // Hide user select form when job is changed
-    let selectForm = $('#user-form');
     // User Submit form ajax handling with button instead
     $('#submitform').click(function (e) {
-        // let url = "{{ url_for('.predict') }}";
         ajaxOnSubmit();  // DEFINE THIS FUNC
         $.ajax({
             type: "POST",
@@ -187,12 +184,15 @@ $(document).ready(function (e) {
             success: function (response) { // display success response
                 filename = response.filename ;
                 clearBox('msg');
-                $('#msg').append(response.message + '<br/>')
+                $('#msg').append(response.message + '<br/>');
+                clearBox('info_box');
+                $(".info_box").append(`Will evaluate: ` + filename.bold());
+                $(".info_box").append(` if the textbox is empty`);
                 },
             error: function (response) {
                 clearBox('msg');
                 // $('#msg').html(response.message); // display error response
-                $('#msg').append('<span style="color:red">File needs to be in CSV format</span>');
+                $('#msg').append(response['responseJSON'].message);
                 return;
             }
         });
