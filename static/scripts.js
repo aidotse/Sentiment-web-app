@@ -131,7 +131,7 @@ $(document).ready(function() {
         ajaxOnSubmit();  // DEFINE THIS FUNC
         $.ajax({
             type: "POST",
-            url: "/predict",
+            url: "/pred_endpoint",
             data: {message: $("#message").val(), 
             model:  $("#model-select").val(),
             filename: filename, 

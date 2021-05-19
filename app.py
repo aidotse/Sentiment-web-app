@@ -1,13 +1,13 @@
 import os
 import socket
-
+import json
 import numpy as np
 import pandas as pd
 import torch
 from flask import Flask, render_template, request, jsonify
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from transformers import BertForSequenceClassification, BertTokenizerFast
+from transformers import BertForSequenceClassification, BertTokenizerFast, BertForTokenClassification
 from werkzeug.utils import secure_filename
 
 
@@ -47,12 +47,19 @@ class Dataset(torch.utils.data.Dataset):
         return len(self.labels)
 
 
-def load_classifier(model):
+def load_sentiment_classifier(model):
     classifier = BertForSequenceClassification.from_pretrained(
         # "KB/bert-base-swedish-cased", # Use the 12-layer BERT model, with a cased vocab.
-        model,  # Use the 12-layer BERT model, with a cased vocab.
-        # "bert-base-uncased",
-        num_labels=3,  # The number of output labels--2 for binary classification.
+        model,
+        # You can increase this for multi-class tasks.
+        output_attentions=False,  # Whether the model returns attentions weights.
+        output_hidden_states=False,  # Whether the model returns all hidden-states.
+    )
+    return classifier
+def load_token_classifier(model):
+    classifier = BertForTokenClassification.from_pretrained(
+        # "KB/bert-base-swedish-cased", # Use the 12-layer BERT model, with a cased vocab.
+        model,
         # You can increase this for multi-class tasks.
         output_attentions=False,  # Whether the model returns attentions weights.
         output_hidden_states=False,  # Whether the model returns all hidden-states.
@@ -82,9 +89,36 @@ def pred_frag(tokenized_data, classifier):
         pred = np.append(pred, tmp_pred)
         return pred
 
+
+def save_files(file):
+    errors = {}
+    success = False
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        success = True
+    else:
+        errors['message'] = 'File extension is not allowed'
+
+    if success and errors:
+        errors['message'] = 'File successfully uploaded'
+        resp = jsonify(errors)
+        resp.status_code = 206
+        return resp
+    if success:
+        resp = jsonify({'message': 'File successfully uploaded', 'filename': filename})
+        resp.status_code = 201
+        return resp
+    else:
+        resp = jsonify(errors)
+        resp.status_code = 400
+        return resp
+
 UPLOAD_FOLDER = 'upload'
 ALLOWED_EXTENSIONS = {'csv'}
 
+if not os.path.exists("upload"):
+    os.makedirs("upload")
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -94,36 +128,41 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 print(f"Loading tokenizer")
 tokenizer = BertTokenizerFast.from_pretrained("RecordedFuture/Swedish-Sentiment-Fear")
 print(f"Loading Violence Sentiment model")
-classifier_violence = load_classifier("RecordedFuture/Swedish-Sentiment-Violence").to(device)
+classifier_violence = load_sentiment_classifier("RecordedFuture/Swedish-Sentiment-Violence").to(device)
 print(f"Loading Fear Sentiment model")
-classifier_fear = load_classifier("RecordedFuture/Swedish-Sentiment-Fear").to(device)
+classifier_fear = load_sentiment_classifier("RecordedFuture/Swedish-Sentiment-Fear").to(device)
+print(f"Loading Fear sentiment target model")
+classifier_fear_targets = load_token_classifier("RecordedFuture/Swedish-Sentiment-Fear-Targets").to(device)
+print(f"Loading Violence sentiment target model")
+classifier_violence_targets = load_token_classifier("RecordedFuture/Swedish-Sentiment-Violence-Targets").to(device)
 
-
-@app.route('/')
-def home():
-    return render_template('home.html')
-
-@app.route('/guide')
-def guide():
-    return render_template('guide.html')
-
-@app.route('/predict', methods=["POST"])
-def predict():
-    gather_results = request.form['group_result'] # get input on how to group the results
-    selected_model = request.form['model'] # get input on which sentiment to evaluate
-    file = request.form['filename']  # get the uploaded file from the page
-    message = request.form['message']  # get the message
-
-    if selected_model == "fear": # make the sentiment classifier selection
+def model_selector(setup):
+    if setup["model"] == "fear": # make the sentiment classifier selection
         classifier = classifier_fear
-    elif selected_model == "violence":
+    elif setup["model"] == "violence":
         classifier = classifier_violence
+    elif setup["model"] == "fear_target":
+        classifier = classifier_fear_targets
+    elif setup["model"] == "violence_target":
+        classifier = classifier_violence_targets
+    return classifier
 
+def input_source(setup):
+    if setup['message']: # the text box is used
+        message = setup["message"]
+    elif setup['filename'] and not setup['message']:
+        message = pd.read_csv(f"../Bert-app/upload/{setup['filename']}", header=None, usecols=[0])
+        # read the file name from the upload folder, use the first col as the data column
+    else:
+        return {"message": "No data received in payload", "pred": ""}
+    return message
+
+def prepare_data(setup, message):
 
     index_all = []  # var for storing the indexing
     index = 0  # start indexing at zero
 
-    if message:  # if the text message box is used it should take priority
+    if setup['message']:  # if the text message box is used it should take priority
         data_pred = []
         s_frag = message.split(".")  # split all fragments on ".", if "." not in frag nothing happens
         for s in s_frag:  # loop through the list of split strings
@@ -131,10 +170,10 @@ def predict():
                 data_pred.append(s)
                 index_all.append(index)  # append the indexing for max sorting
         message = pd.Series(message)
-    elif not message and file:  # double check to make sure that the tex bos is not in use and a file is uploaded
+    elif not setup['message'] and setup["filename"]:  # double check to make sure that the tex box is not in use and a file is uploaded
         data_pred = []
-        message = pd.read_csv(f"../Bert-app/upload/{file}", header=None, usecols=[
-            0])  # read the file name from the upload folder, use the first col as the data column
+        # message = pd.read_csv(f"../Bert-app/upload/{setup['file']}", header=None, usecols=[
+        #     0])  # read the file name from the upload folder, use the first col as the data column
         if len(message) > 1:  # different methods for handling if all the data is present in one csv cell or not, due to the list() method transorming each char to a seperate string in that case
             tmp_data = list(message.squeeze())  # transform DF to Series and format it as a list
         else:
@@ -150,6 +189,16 @@ def predict():
         print("No data in text window and no file uploaded")
         return {"message": "no_data_uploaded_or_in_text_area_", "pred": 0}
 
+    return data_pred, index_all
+
+def predict(setup):
+
+    message = input_source(setup)
+
+    classifier = model_selector(setup)
+
+    data_pred , index_all = prepare_data(setup, message)
+
     pred = [] # var for storing the predctions
     label = [] # var for storing the labels of the
     batches = chunks(data_pred, 1)  # can probably batch it in larger than 1
@@ -163,11 +212,11 @@ def predict():
     ### the back end should only do the prediction and always return the results in the same format
     data_disp = []
     pred_disp = []
-    if gather_results == 'unsorted':  # if data aggregation button selection is seperate just continue, all if formatted correctly already
+    if setup['group_result'] == 'unsorted':  # if data aggregation button selection is seperate just continue, all if formatted correctly already
         data_disp = data_pred
         pred_disp = pred
 
-    elif gather_results == 'sorted':  # if the button is set to max
+    elif setup['group_result'] == 'sorted':  # if the button is set to max
         if len(pred) < 2:  # if len of pred is 1 then just continue, you cant sort a single float
             data_disp = data_pred
             pred_disp = pred
@@ -175,7 +224,7 @@ def predict():
             sorted_based_max_pred = np.array(pred).argsort()[:][::-1]  # sorted
             pred_disp = [pred[i] for i in sorted_based_max_pred] # format the predictions to make the output consistent
             data_disp = [data_pred[i] for i in sorted_based_max_pred] # format the data to make the output consistent
-    elif gather_results == 'max':  # if the button is set to max
+    elif setup['group_result'] == 'max':  # if the button is set to max
         if len(pred) < 2: # if len of pred = 1 then do nothing since the max of a float is itself
             data_disp = data_pred
             pred_disp = pred
@@ -195,10 +244,68 @@ def predict():
                 data_disp = [message.squeeze()]
 
 
-    ret = {"message": data_disp, "pred": pred_disp, "message_raw": data_pred, "pred_raw": pred, "index": index_all}
+    ret = {"message": data_disp,
+           "pred": pred_disp,
+           "message_raw": data_pred,
+           "pred_raw": pred,
+           "index": index_all}
 
     return ret
 
+@app.route('/ping', methods = ["GET"])
+def ping():
+    return jsonify({"Status":"Server is live"})
+
+@app.route('/')
+def home():
+    return render_template('home.html')
+
+@app.route('/guide')
+def guide():
+    return render_template('guide.html')
+
+@app.route('/echo/<message>',methods = ["GET"])
+def echo(message):
+    print(f"{message}")
+    return {"message":message}
+
+@app.route('/api', methods=["POST"])
+def api():
+
+    setup = request.files['setup'].read().decode("utf-8")
+    setup = json.loads(setup)
+
+    if 'eval_file' in request.files: # check if "eval_file" is in request.files, only occures when the "eval_file" input is used in a curl request
+        file = request.files['eval_file'] # take the uploaded file
+        resp = save_files(file) # run it through the save_file function to save it in the upload folder
+        resp = resp.json # read the response as JSON
+        setup['filename'] = resp['filename']
+    else:
+        setup['filename']= ""
+
+    resp = predict(setup)
+    return resp
+
+@app.route('/api/input',methods = ["GET"])
+def api_input():
+    return jsonify({"group_result":["unsorted","sorted","max"],
+                    "model":["fear","violence"],
+                    "message": "any string",
+                    "eval_file": "@path/to/file.csv"
+                    })
+
+@app.route('/pred_endpoint', methods=["POST"])
+def pred_endpoint():
+    setup = {
+        "group_result": request.form['group_result'],
+        "model": request.form['model'],
+        "filename": request.form['filename'],
+        "message": request.form['message']
+    }
+
+    response = predict(setup)
+
+    return response
 
 @app.route('/python-flask-files-upload', methods=['POST'])
 def upload_file():
@@ -209,30 +316,10 @@ def upload_file():
         return resp
 
     files = request.files.getlist('files[]')
-    errors = {}
-    success = False
-
     for file in files:
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            success = True
-        else:
-            errors['message'] = 'File extension is not allowed'
+        resp = save_files(file)
 
-    if success and errors:
-        errors['message'] = 'File successfully uploaded'
-        resp = jsonify(errors)
-        resp.status_code = 206
-        return resp
-    if success:
-        resp = jsonify({'message': 'File successfully uploaded', 'filename': filename})
-        resp.status_code = 201
-        return resp
-    else:
-        resp = jsonify(errors)
-        resp.status_code = 400
-        return resp
+    return resp
 
 
 if __name__ == "__main__":
