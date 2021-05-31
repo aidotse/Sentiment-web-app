@@ -49,38 +49,44 @@ class Dataset(torch.utils.data.Dataset):
 
 def load_sentiment_classifier(model):
     classifier = BertForSequenceClassification.from_pretrained(
-        # "KB/bert-base-swedish-cased", # Use the 12-layer BERT model, with a cased vocab.
         model,
-        # You can increase this for multi-class tasks.
         output_attentions=False,  # Whether the model returns attentions weights.
         output_hidden_states=False,  # Whether the model returns all hidden-states.
     )
     return classifier
+
+
 def load_token_classifier(model):
     classifier = BertForTokenClassification.from_pretrained(
-        # "KB/bert-base-swedish-cased", # Use the 12-layer BERT model, with a cased vocab.
         model,
-        # You can increase this for multi-class tasks.
         output_attentions=False,  # Whether the model returns attentions weights.
         output_hidden_states=False,  # Whether the model returns all hidden-states.
     )
     return classifier
 
 
-def tokenize_data(data, tokenizer):
-    label = np.zeros(len(data))  # dummy labels are used so that the entire Data loader class needs to be rewritten, does not affect classification
+def tokenize_ner_data(data, tokenizer):
+    encodings = tokenizer(data, truncation=True, padding=True, max_length=512)
+    labels = [np.zeros(len(e)) for e in encodings['input_ids']]
+    labels = torch.tensor(labels, dtype=int)
+    transformed_data = Dataset(encodings, labels)
+    return transformed_data, encodings
+
+
+def tokenize_sentiment_data(data, tokenizer):
+    label = np.zeros(len(
+        data))  # dummy labels are used so that the entire Data loader class needs to be rewritten, does not affect classification
     label = torch.tensor(label, dtype=int)
-    encodings = tokenizer(list(data), truncation=True, padding=True, max_length= 512)
+    encodings = tokenizer(list(data), truncation=True, padding=True, max_length=512)
     transformed_data = Dataset(encodings, label)
     return transformed_data
 
 
-def pred_frag(tokenized_data, classifier):
+def pred_sequence(tokenized_data, classifier):
     pred = np.array([])
     ver_data_loader = DataLoader(tokenized_data, batch_size=2, shuffle=False)
     for batch in tqdm(ver_data_loader):
         batch = {k: v.to(device) for k, v in batch.items()}
-        # _, logits = classifier(**batch)  # run local
         output = classifier(**batch)  # run MLab
         logits = output.logits  # run MLab
         p_soft_max = torch.softmax(logits, dim=1)[:, 1:].tolist()
@@ -88,6 +94,18 @@ def pred_frag(tokenized_data, classifier):
         tmp_pred = [p_soft_max[0][0] * 0.75, p_soft_max[0][1]]  # scaled weak sentiment from [0 1] to [0 0.75]
         pred = np.append(pred, tmp_pred)
         return pred
+
+
+def pred_token(tokenized_data, classifier):
+    p_all = []
+    ver_data_loader = DataLoader(tokenized_data, batch_size=1, shuffle=False)
+    for batch in tqdm(ver_data_loader):
+        batch = {k: v.to(device) for k, v in batch.items()}
+        output = classifier(**batch)  # run MLab
+        logits = output.logits  # run MLab
+        p_soft_max = torch.softmax(logits, dim=2).tolist()[0]
+        p_all.append(p_soft_max)
+    return p_all
 
 
 def save_files(file):
@@ -114,6 +132,7 @@ def save_files(file):
         resp.status_code = 400
         return resp
 
+
 UPLOAD_FOLDER = 'upload'
 ALLOWED_EXTENSIONS = {'csv'}
 
@@ -135,20 +154,29 @@ print(f"Loading Fear sentiment target model")
 classifier_fear_targets = load_token_classifier("RecordedFuture/Swedish-Sentiment-Fear-Targets").to(device)
 print(f"Loading Violence sentiment target model")
 classifier_violence_targets = load_token_classifier("RecordedFuture/Swedish-Sentiment-Violence-Targets").to(device)
+print(f"Loading Swedish NER model")
+classifier_swedish_ner = load_token_classifier("RecordedFuture/Swedish-NER").to(device)
+
+available_models = {"NER": ["fear_target", "violence_target", "swedish_ner"],
+                    "sentiment": ["fear_sentiment", "violence_sentiment"]}
+
 
 def model_selector(setup):
-    if setup["model"] == "fear": # make the sentiment classifier selection
+    if setup["model"] == "fear_sentiment":  # make the sentiment classifier selection
         classifier = classifier_fear
-    elif setup["model"] == "violence":
+    elif setup["model"] == "violence_sentiment":
         classifier = classifier_violence
     elif setup["model"] == "fear_target":
         classifier = classifier_fear_targets
     elif setup["model"] == "violence_target":
         classifier = classifier_violence_targets
+    elif setup["model"] == "swedish_ner":
+        classifier = classifier_swedish_ner
     return classifier
 
+
 def input_source(setup):
-    if setup['message']: # the text box is used
+    if setup['message']:  # the text box is used
         message = setup["message"]
     elif setup['filename'] and not setup['message']:
         message = pd.read_csv(f"../Bert-app/upload/{setup['filename']}", header=None, usecols=[0])
@@ -157,8 +185,8 @@ def input_source(setup):
         return {"message": "No data received in payload", "pred": ""}
     return message
 
-def prepare_data(setup, message):
 
+def prepare_data(setup, message):
     index_all = []  # var for storing the indexing
     index = 0  # start indexing at zero
 
@@ -170,11 +198,11 @@ def prepare_data(setup, message):
                 data_pred.append(s)
                 index_all.append(index)  # append the indexing for max sorting
         message = pd.Series(message)
-    elif not setup['message'] and setup["filename"]:  # double check to make sure that the tex box is not in use and a file is uploaded
+    elif not setup['message'] and setup[
+        "filename"]:  # double check to make sure that the tex box is not in use and a file is uploaded
         data_pred = []
-        # message = pd.read_csv(f"../Bert-app/upload/{setup['file']}", header=None, usecols=[
-        #     0])  # read the file name from the upload folder, use the first col as the data column
-        if len(message) > 1:  # different methods for handling if all the data is present in one csv cell or not, due to the list() method transorming each char to a seperate string in that case
+        if len(
+                message) > 1:  # different methods for handling if all the data is present in one csv cell or not, due to the list() method transorming each char to a seperate string in that case
             tmp_data = list(message.squeeze())  # transform DF to Series and format it as a list
         else:
             tmp_data = [message.squeeze()]
@@ -191,108 +219,222 @@ def prepare_data(setup, message):
 
     return data_pred, index_all
 
-def predict(setup):
 
-    message = input_source(setup)
-
-    classifier = model_selector(setup)
-
-    data_pred , index_all = prepare_data(setup, message)
-
-    pred = [] # var for storing the predctions
-    label = [] # var for storing the labels of the
-    batches = chunks(data_pred, 1)  # can probably batch it in larger than 1
-    for batch in batches:
-        tokenized_data = tokenize_data(batch, tokenizer)
-        tmp_pred = pred_frag(tokenized_data, classifier=classifier)
-        pred.append(round(np.max(tmp_pred), 2))
-        label.append(np.argmax(tmp_pred))
-
+def sort_result(setup, data_pred, pred, message, index_all, id2label):
     ### all post processesing of the results should be done in the "front end".
     ### the back end should only do the prediction and always return the results in the same format
     data_disp = []
     pred_disp = []
-    if setup['group_result'] == 'unsorted':  # if data aggregation button selection is seperate just continue, all if formatted correctly already
-        data_disp = data_pred
-        pred_disp = pred
+    if setup["model"] in available_models["sentiment"]:
 
-    elif setup['group_result'] == 'sorted':  # if the button is set to max
-        if len(pred) < 2:  # if len of pred is 1 then just continue, you cant sort a single float
+        if setup['group_result'] == 'unsorted':  # if data aggregation button selection is seperate just continue, all if formatted correctly already
             data_disp = data_pred
             pred_disp = pred
-        else:  # if the number of predictions made is higher than 5, get the indexes of the top 5 predictions and get the pred values and fragments
-            sorted_based_max_pred = np.array(pred).argsort()[:][::-1]  # sorted
-            pred_disp = [pred[i] for i in sorted_based_max_pred] # format the predictions to make the output consistent
-            data_disp = [data_pred[i] for i in sorted_based_max_pred] # format the data to make the output consistent
-    elif setup['group_result'] == 'max':  # if the button is set to max
-        if len(pred) < 2: # if len of pred = 1 then do nothing since the max of a float is itself
-            data_disp = data_pred
-            pred_disp = pred
-        else:
-            pred_max = []
-            for uniq in np.unique(index_all):  # check all unique indexes
-                tmp_pred = []
-                for i, val in enumerate(index_all):  # check all available indexes from splitting
-                    if val == uniq:  # get attribute prediction with the same index
-                        tmp_pred.append(pred[i])
-                pred_max.append(np.max(tmp_pred))
-            pred_disp = pred_max
 
-            if len(message) > 1 and type(message).__name__ == 'DataFrame':  # different methods for handling if all the data is present in one csv cell or not, due to the list() method transorming each char to a seperate string in that case
-                data_disp = list(message.squeeze())  # transform DF to Series and format it as a list
+        elif setup['group_result'] == 'sorted':  # if the button is set to max
+            if len(pred) < 2:  # if len of pred is 1 then just continue, you cant sort a single float
+                data_disp = data_pred
+                pred_disp = pred
+            else:  # if the number of predictions made is higher than 5, get the indexes of the top 5 predictions and get the pred values and fragments
+                sorted_based_max_pred = np.array(pred).argsort()[:][::-1]  # sorted
+                pred_disp = [pred[i] for i in sorted_based_max_pred]  # format the predictions to make the output consistent
+                data_disp = [data_pred[i] for i in sorted_based_max_pred]  # format the data to make the output consistent
+        elif setup['group_result'] == 'max':  # if the button is set to max
+            if len(pred) < 2:  # if len of pred = 1 then do nothing since the max of a float is itself
+                data_disp = data_pred
+                pred_disp = pred
             else:
-                data_disp = [message.squeeze()]
+                pred_max = []
+                for uniq in np.unique(index_all):  # check all unique indexes
+                    tmp_pred = []
+                    for i, val in enumerate(index_all):  # check all available indexes from splitting
+                        if val == uniq:  # get attribute prediction with the same index
+                            tmp_pred.append(pred[i])
+                    pred_max.append(np.max(tmp_pred))
+                pred_disp = pred_max
+
+                if len(message) > 1 and type(
+                        message).__name__ == 'DataFrame':  # different methods for handling if all the data is present in one csv cell or not, due to the list() method transorming each char to a seperate string in that case
+                    data_disp = list(message.squeeze())  # transform DF to Series and format it as a list
+                else:
+                    data_disp = [message.squeeze()]
+
+    elif setup["model"] in available_models["NER"]:
+        pred_merged = []
+        data_merged = []
+        for uniq in np.unique(index_all):  # check all unique indexes
+            tmp_pred = []
+            tmp_data = []
+            for i, val in enumerate(index_all):  # check all available indexes from splitting
+                if val == uniq:  # get attribute prediction with the same index
+                    tmp_pred.append(pred[i])
+                    tmp_data.append(data_pred[i])
+            flatten_tmp_pred = [item for sublist in tmp_pred for item in sublist]
+            flatten_tmp_data = [item for sublist in tmp_data for item in sublist]
+            pred_merged.append(flatten_tmp_pred)
+            data_merged.append(flatten_tmp_data)
+        pred_disp = pred_merged
+        data_disp = data_merged
+        tmp_pred = []
+        tmp_data = []
+        for i in reversed(range(len(data_merged))):
+            preds = pred_disp[i]
+            tokens = data_disp[i]
+            p_2 = []
+            d_2 = []
+            tmp_message = []
+            tmp_prediction = []
+            for j in reversed(range(len(tokens))):
+                p = preds[j]
+                token = tokens[j]
+                if token[:2] == "##":
+                    p_2.append(p)
+                    d_2.append(token[2:])
+                elif token[:2] != "##" and len(d_2) > 0:
+                    p_2.append(p)
+                    d_2.append(token)
+                    tmp_prediction.append(np.mean(p_2, axis=0).tolist())
+                    d_2.reverse()
+                    tmp_message.append("".join(d_2))
+                    p_2 = []
+                    d_2 = []
+                else:
+                    tmp_prediction.append(p)
+                    tmp_message.append(token)
+
+            tmp_prediction.reverse()
+            tmp_pred.append(tmp_prediction)
+            tmp_message.reverse()
+            tmp_data.append(tmp_message)
+
+        tmp_pred.reverse()
+        tmp_data.reverse()
+
+        if setup['group_result'] == 'ner-prediction':
+            pred_disp = tmp_pred
+            data_disp = tmp_data
+        elif setup['group_result'] == 'ner-classification':
+            classification = []
+            for sent in tmp_pred:
+                arg_max_sent = []
+                for token in sent:
+                    arg_max_sent.append(np.argmax(token))
+                classification_sent = [id2label[elm][-3:] for elm in arg_max_sent]
+                classification.append(classification_sent)
+            pred_disp = classification
+            data_disp = tmp_data
+
+    return data_disp, pred_disp
 
 
-    ret = {"message": data_disp,
-           "pred": pred_disp,
-           "message_raw": data_pred,
-           "pred_raw": pred,
-           "index": index_all}
+def predict(setup):
+    ret = {"message": None,
+           "pred": None,
+           "message_raw": None,
+           "pred_raw": None,
+           "index": None,
+           "NER_labels": None}
+    message = input_source(setup)
 
+    classifier = model_selector(setup)
+
+    data_pred, index_all = prepare_data(setup, message)
+    pred = []  # var for storing the predctions
+    label = []  # var for storing the labels of the
+    batches = chunks(data_pred, 1)
+    word_ids_all = []
+    input_ids_all = []
+    id2label=[]
+    for batch in batches:
+        if setup["model"] in available_models["sentiment"]:
+            tokenized_data = tokenize_sentiment_data(batch, tokenizer)
+            tmp_pred = pred_sequence(tokenized_data, classifier=classifier)
+            pred.append(round(np.max(tmp_pred), 2))
+            label.append(np.argmax(tmp_pred))
+        elif setup["model"] in available_models["NER"]:
+            id2label = classifier.config.id2label
+            tokenized_data, encodings = tokenize_ner_data(batch, tokenizer)
+            word_ids_all.append(encodings[0].word_ids)
+            input_ids_all.append(encodings['input_ids'][0])
+            tmp_pred = pred_token(tokenized_data, classifier=classifier)
+            pred.append(tmp_pred)
+
+    # this code will remove all predictions belonging to padding tokens and other special tokens
+    # will not merge predictions from split tokens
+    if setup["model"] in available_models["NER"]:
+        tmp_pred = [elm[0] for elm in pred]
+        predictions_all_shortend = []
+        for i, p in enumerate(tmp_pred):
+            ids = word_ids_all[i]
+            ok = [j for j, id in enumerate(ids) if id != None]
+            tp = [p[elm] for elm in ok]
+            predictions_all_shortend.append(tp)
+        data_pred = [tokenizer.convert_ids_to_tokens(ids, skip_special_tokens=True) for ids in input_ids_all]
+        pred = predictions_all_shortend
+    data_disp, pred_disp = sort_result(setup, data_pred, pred, message, index_all, id2label)
+
+    if setup["model"] in available_models["NER"]:
+        ret["message"] = data_disp
+        ret["pred"] = pred_disp
+        ret["message_raw"] = data_pred
+        ret["pred_raw"] = predictions_all_shortend
+        ret["index"] = index_all
+        ret["NER_labels"] = id2label
+    elif setup["model"] in available_models["sentiment"]:
+        ret["message"] = data_disp
+        ret["pred"] = pred_disp
+        ret["message_raw"] = data_pred
+        ret["pred_raw"] = pred
+        ret["index"] = index_all
     return ret
 
-@app.route('/ping', methods = ["GET"])
+
+
+@app.route('/ping', methods=["GET"])
 def ping():
-    return jsonify({"Status":"Server is live"})
+    return jsonify({"Status": "Server is live"})
+
 
 @app.route('/')
 def home():
     return render_template('home.html')
 
+
 @app.route('/guide')
 def guide():
     return render_template('guide.html')
 
-@app.route('/echo/<message>',methods = ["GET"])
+
+@app.route('/echo/<message>', methods=["GET"])
 def echo(message):
     print(f"{message}")
-    return {"message":message}
+    return {"message": message}
+
 
 @app.route('/api', methods=["POST"])
 def api():
-
     setup = request.files['setup'].read().decode("utf-8")
     setup = json.loads(setup)
 
-    if 'eval_file' in request.files: # check if "eval_file" is in request.files, only occures when the "eval_file" input is used in a curl request
-        file = request.files['eval_file'] # take the uploaded file
-        resp = save_files(file) # run it through the save_file function to save it in the upload folder
-        resp = resp.json # read the response as JSON
+    if 'eval_file' in request.files:  # check if "eval_file" is in request.files, only occures when the "eval_file" input is used in a curl request
+        file = request.files['eval_file']  # take the uploaded file
+        resp = save_files(file)  # run it through the save_file function to save it in the upload folder
+        resp = resp.json  # read the response as JSON
         setup['filename'] = resp['filename']
     else:
-        setup['filename']= ""
+        setup['filename'] = ""
 
     resp = predict(setup)
     return resp
 
-@app.route('/api/input',methods = ["GET"])
+
+@app.route('/api/input', methods=["GET"])
 def api_input():
-    return jsonify({"group_result":["unsorted","sorted","max"],
-                    "model":["fear","violence"],
+    return jsonify({"group_result": ["unsorted", "sorted", "max", "ner"],
+                    "model": ["fear", "violence", "fear_target", "violence_target", "swedish_ner"],
                     "message": "any string",
-                    "eval_file": "@path/to/file.csv"
                     })
+
 
 @app.route('/pred_endpoint', methods=["POST"])
 def pred_endpoint():
@@ -306,6 +448,7 @@ def pred_endpoint():
     response = predict(setup)
 
     return response
+
 
 @app.route('/python-flask-files-upload', methods=['POST'])
 def upload_file():
@@ -335,4 +478,3 @@ if __name__ == "__main__":
           f"# {ipv4}\n \n")
     print(f"The link below is broken, follow the above steps to access the web app")
     app.run(debug=False, host='0.0.0.0', port=port)
-

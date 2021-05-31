@@ -20,19 +20,11 @@ Or through your  IPv4 Address in your browser of choice, access IPv4 Address by 
 ## Docker: 
 #### Build
 The web app can be packaged into a docker container using the included Docker file using 
-`docker build --tag name:tag` 
+`docker build -f Dockerfile -t project:myapp .`
+This command needs to be run from the Bert-app directory 
 
-### Pull from hub
-This application is available from docker hub the latest tag is the version currently available on Github. 
-
-Pull the repo using the command 
-* `docker pull rffmoller/swedish-bert-web-app`
-No tag needs to be included, it reverts to the latest.
-
-to run the container use the following call: 
-* `docker run -p 3130:3130 rffmoller/swedish-bert-web-app`
-
-The `-p 3130:3130` input will map the web app which always will be hosted on port 3130 in the docker container to your local port 3130. (local port: docker port, you can use what you want for the local port)
+When you have built your container you can run it with the command
+`docker run -p 3130:3130 project:myapp`
 
 When the app has launched inside the container you can access the web app in your browser of choice by writing: 
 * `http://localhost:3130/`
@@ -42,10 +34,8 @@ Or through your  IPv4 Address, access it through `ipconfig` in `CMD` or the corr
 
 ## Models:
 The models used for the sentiment classification are available for download and standalone usage at:
-[Fear model](https://huggingface.co/RecordedFuture/Swedish-Sentiment-Fear)    
-[Violence model](https://huggingface.co/RecordedFuture/Swedish-Sentiment-Violence)
-
-Before running. Make sure you have a valid Bert model directory inside of the "Bert-app" dir. 
-Change the name in the "load_classifier" function in app.py 
-
-Except for this the app should be able to run on any system
+[Fear sentiment model](https://huggingface.co/RecordedFuture/Swedish-Sentiment-Fear)    
+[Violence sentiment model](https://huggingface.co/RecordedFuture/Swedish-Sentiment-Violence)
+[Violence sentiment target model](https://huggingface.co/RecordedFuture/Swedish-Sentiment-Violence-Targets)
+[Fear sentiment target model](https://huggingface.co/RecordedFuture/Swedish-Sentiment-Fear-Targets)
+[Swedish NER model](https://huggingface.co/RecordedFuture/Swedish-NER)

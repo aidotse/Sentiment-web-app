@@ -3,4 +3,5 @@ WORKDIR /Bert-app
 ADD . /Bert-app
 RUN pip install --upgrade pip 
 RUN pip install -r requirements.txt
+RUN python load_models.py
 CMD ["python","app.py"]

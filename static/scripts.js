@@ -3,6 +3,17 @@ filename = ""
 var table_data
 var classification_breakpoint = 0
 
+var available_models = {"NER":["fear_target" , 'violence_target', "swedish_ner"],
+                        "sentiment":["fear_sentiment", "violence_sentiment"]}
+
+var mdl_srt = {
+    'violence_sentiment': ['unsorted', 'sorted','max'],
+    'fear_sentiment': ['unsorted', 'sorted','max'],
+    'fear_target': ['ner-prediction', 'ner-classification'],
+    'violence_target': ['ner-prediction', 'ner-classification'],
+    'swedish_ner':['ner-prediction', 'ner-classification']
+}
+
 
 function clearBox(elementID){
                             document.getElementById(elementID).innerHTML = "";
@@ -54,19 +65,32 @@ function convertToCSV(objArray) {
 
 function ajaxOnSubmit(){clearBox('info_box');
                         $(".info_box").append(`Processing the data`);}
-function ajaxOnError(){}
+
+function select_classification_breakpoint(mod_select){
+    if (mod_select == 'violence_sentiment'){
+        classification_breakpoint = 0.575}
+    else if (mod_select == 'fear_sentiment'){
+        classification_breakpoint = 0.5}
+    return classification_breakpoint}
+
+function ajaxOnError(ajaxResponse, errorStr){
+                        var msg = '';
+                        clearBox('info_box');
+                        $("#loader").hide();
+                        if (ajaxResponse.status === 500) {
+                                msg = 'Something went wrong, check you inputs and try again';
+                        };
+                        $(".info_box").append(msg);
+                        }
 function ajaxCallback(data){clearBox('info_box');
                             clearBox('msg');
                             result_data = data;
-                            if ($("#model-select").val() == 'violence'){
-                                classification_breakpoint = 0.575}
-                            else if ($("#model-select").val() == 'fear'){
-                                classification_breakpoint = 0.5};
+                            classification_breakpoint = select_classification_breakpoint($("#model-select").val())
                             if (data.message == "no_data_uploaded_or_in_text_area_"){
                                 $(".info_box").append(`No data available`);
                                 $("#res_table_div").hide()
                                 }
-                            else{
+                            else if(available_models["sentiment"].includes($("#model-select").val()) ){
                                 // If predictionresults are present, load them in the table, allways 
                                 var table_data = [];
                                 var classification_all = [];
@@ -89,11 +113,25 @@ function ajaxCallback(data){clearBox('info_box');
                                     $('#res_table').bootstrapTable('load', table_data);
                                     $("#res_table_div").show()
                                     }
+                            else if(available_models["NER"].includes($("#model-select").val()) ){
+                                $("#res_table_div").hide();
+                                $('.info_box').append(`NER models can not yet be visualized, but can be exported as a JSON`);
+                                console.log(data)
+                            }
+                            
+                            else {
+                                console.log(data)}
                                 }
                                 
+                                
 
-function exportJson(el) {
-                            var data = "text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({"message":result_data.message,"prediction":result_data.pred}));
+function exportJson(el) {   if (available_models["sentiment"].includes($("#model-select").val()) ) {
+                                var data = "text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({"message":result_data.message,"prediction":result_data.pred}));
+                            }
+                            else if(available_models["NER"].includes($("#model-select").val()) ){
+                                var data = "text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({"message":result_data.message,"prediction":result_data.pred, "NER-labels":result_data.NER_labels}));
+                            }
+                            
                             el.setAttribute("href", "data:"+data);
                             el.setAttribute("download", "results.json");}
 
@@ -124,25 +162,27 @@ function exportCSV(el) {    var csv_string = "";
 
 
 
-// {#  Modified version of ajax_form_submit for two buttons  #}
 $(document).ready(function() {
     // User Submit form ajax handling with button instead
     $('#submitform').click(function (e) {
         ajaxOnSubmit();  // DEFINE THIS FUNC
         $.ajax({
-            type: "POST",
-            url: "/pred_endpoint",
-            data: {message: $("#message").val(), 
-            model:  $("#model-select").val(),
-            filename: filename, 
-            group_result: $("#results-select").val()},
-            beforeSend: function(){
-            // Show image container
-            $("#loader").show()},
-            success: function (data) {
-                ajaxCallback(data),
-                $("#loader").hide();   // DEFINE THIS FUNC
-            },
+                type: "POST",
+                url: "/pred_endpoint",
+                data: {message: $("#message").val(), 
+                    model:  $("#model-select").val(),
+                    filename: filename, 
+                    group_result: $("#results-select").val()},
+        beforeSend: function(){
+        // Show image container
+        $("#loader").show()},
+        success: function (data) {
+            ajaxCallback(data),
+            $("#loader").hide();
+            $("#message").show();
+            document.getElementById('multiFiles').value=null;
+            filename = ""
+        },
             error: function(ajaxResponse, errorStr) {
                 ajaxOnError(ajaxResponse, errorStr);  // DEFINE THIS FUNC
             },
@@ -187,7 +227,8 @@ $(document).ready(function (e) {
                 $('#msg').append(response.message + '<br/>');
                 clearBox('info_box');
                 $(".info_box").append(`Will evaluate: ` + filename.bold());
-                $(".info_box").append(` if the textbox is empty`);
+                document.getElementById('message').value = "";
+                $("#message").hide()
                 },
             error: function (response) {
                 clearBox('msg');
@@ -198,3 +239,19 @@ $(document).ready(function (e) {
         });
     });
 });
+
+
+$(document).ready(function() {
+    document.getElementById('model-select').addEventListener("input", function (evt) {
+    srt = mdl_srt[this.value];
+    elm = document.getElementById('results-select');
+    document.getElementById('results-select').innerHTML = ""
+
+    for (var i = 0; i < srt.length; i++) {
+        option = document.createElement("option")    
+        option.text = srt[i]
+        option.value = srt[i]
+        document.getElementById('results-select').add(option)
+    }    
+    }, true);
+})

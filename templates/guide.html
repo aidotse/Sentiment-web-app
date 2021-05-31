@@ -40,7 +40,12 @@ that is produced from it. If the free text input is used the entire input will b
 treated as a single string. The input format is preserved.
 
 The selection is preserved through predictions so it does not need to be
-re-selected for each prediction</p>
+re-selected for each prediction.
+
+<h5>NER:</h5>
+Each token in the input sentences will be assigned an individual prediction from the model.
+These predictions corresponds to a unique token label. This setting is only available for NER models. </p>
+
 
 <p><h4>Input:</h4>
 The model will evaluate all inputs sentence wise. This means that your input text
